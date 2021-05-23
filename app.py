@@ -1,6 +1,6 @@
 import numpy as np
-
 import sqlalchemy
+import datetime as dt
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
@@ -11,7 +11,7 @@ from flask import Flask, jsonify
 #################################################
 # Database Setup
 #################################################
-engine = create_engine("sqlite:///titanic.sqlite")
+engine = create_engine("sqlite:///hawaii.sqlite")
 
 # reflect an existing database into a new model
 Base = automap_base()
@@ -19,7 +19,8 @@ Base = automap_base()
 Base.prepare(engine, reflect=True)
 
 # Save reference to the table
-Passenger = Base.classes.passenger
+Measurement = Base.classes.measurement
+Station = Base.classes.station
 
 #################################################
 # Flask Setup
@@ -35,50 +36,104 @@ app = Flask(__name__)
 def welcome():
     """List all available api routes."""
     return (
-        f"Available Routes:<br/>"
-        f"/api/v1.0/names<br/>"
-        f"/api/v1.0/passengers"
+        f"<h1>Available Routes:</h1><br/>"
+        f"<table><tr><td>Precipitation</td><td>/api/v1.0/precipitation</td></tr>"
+        f"<tr><td>Stations</td><td>/api/v1.0/stations</td></tr>"
+        f"<tr><td>Tobs</td><td>/api/v1.0/tobs</td></tr>"
+        f"<tr><td>Temperatures for a given date (format: yyyy/mm/dd)</td><td>/api/v1.0/yyyy-mm-dd</td></tr>"
+        f"<tr><td>Temperatures for a given date range (format: yyyy/mm/dd)</td><td>/api/v1.0/yyyy-mm-dd/yyyy-mm-dd</td></tr>"
     )
 
 
-@app.route("/api/v1.0/names")
-def names():
+#################################################
+# PRECIPITATION
+#################################################
+@app.route('/api/v1.0/precipitation')
+def precipitation():
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
-    """Return a list of all passenger names"""
-    # Query all passengers
-    results = session.query(Passenger.name).all()
-
-    session.close()
-
-    # Convert list of tuples into normal list
-    all_names = list(np.ravel(results))
-
-    return jsonify(all_names)
-
-
-@app.route("/api/v1.0/passengers")
-def passengers():
-    # Create our session (link) from Python to the DB
-    session = Session(engine)
-
-    """Return a list of passenger data including the name, age, and sex of each passenger"""
-    # Query all passengers
-    results = session.query(Passenger.name, Passenger.age, Passenger.sex).all()
-
+    # Query to retrieve precipitation data
+    sel = [Measurement.date,Measurement.prcp]
+    results = session.query(*sel).all()
     session.close()
 
     # Create a dictionary from the row data and append to a list of all_passengers
-    all_passengers = []
-    for name, age, sex in results:
-        passenger_dict = {}
-        passenger_dict["name"] = name
-        passenger_dict["age"] = age
-        passenger_dict["sex"] = sex
-        all_passengers.append(passenger_dict)
+    all_precipitation = []
+    for date, prcp in results:
+        precipitation_dict = {}
+        precipitation_dict["Date"] = date
+        precipitation_dict["Precipitation"] = prcp
+        all_precipitation.append(precipitation_dict)
 
-    return jsonify(all_passengers)
+    return jsonify(all_precipitation)
+
+#################################################
+# STATIONS
+#################################################
+@app.route('/api/v1.0/stations')
+def stations():
+    session = Session(engine)
+
+    #Query to select all stations, order ascending
+    results = session.query(Station.station).order_by(Station.station).all()
+    session.close()
+
+    #flatten result set and add to list
+    stations_list = list(np.ravel(results))
+
+    return jsonify(stations_list)
+
+#################################################
+# TEMPERATURE OBSERVATIONS - TOBS
+#################################################
+@app.route("/api/v1.0/tobs")
+def tobs():
+    session = Session(engine)
+
+    # Query the dates and temperature observations of the most active station for the last year of data.
+    most_recent_date_str = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
+    most_recent_date = dt.datetime.strptime(most_recent_date_str[0], '%Y-%m-%d')
+    
+    # Calculate the date one year from the last date in data set.
+    recent_date_one_year_past = dt.date(most_recent_date.year -1, most_recent_date.month, most_recent_date.day)
+    sel = [Measurement.date, Measurement.prcp]
+    results = session.query(*sel).\
+        filter(Measurement.date >= recent_date_one_year_past).all()
+
+    session.close()
+
+    # Convert the list to Dictionary
+    all_tobs = []
+    for date,tobs in results:
+        tobs_dict = {}
+        tobs_dict["Date"] = date
+        tobs_dict["Tobs"] = tobs
+        all_tobs.append(tobs_dict)
+
+    return jsonify(all_tobs)
+
+#################################################
+# TEMPERATURE DATA >= GIVEN DATE
+#################################################
+@app.route('/api/v1.0/<start>')
+def temperatureGreaterThanStart(start):
+    session = Session(engine)
+
+    #Query to get the TMIN, TAVG, TMAX for all dates greater than and equal to the given start date
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).all()
+    session.close()
+
+    all_tobs = []
+    for min,avg,max in results:
+        tobs_dict = {}
+        tobs_dict["Min"] = min
+        tobs_dict["Average"] = avg
+        tobs_dict["Max"] = max
+        all_tobs.append(tobs_dict)
+
+    return jsonify(all_tobs)
 
 
 if __name__ == '__main__':
