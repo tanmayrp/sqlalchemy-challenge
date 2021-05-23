@@ -1,10 +1,10 @@
 import numpy as np
 import sqlalchemy
 import datetime as dt
+
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
-
 from flask import Flask, jsonify
 
 
@@ -27,9 +27,8 @@ Station = Base.classes.station
 #################################################
 app = Flask(__name__)
 
-
 #################################################
-# Flask Routes
+# ROOT - DISPLAY ALL ROUTES AVAILABLE
 #################################################
 
 @app.route("/")
@@ -37,11 +36,14 @@ def welcome():
     """List all available api routes."""
     return (
         f"<h1>Available Routes:</h1><br/>"
-        f"<table><tr><td>Precipitation</td><td>/api/v1.0/precipitation</td></tr>"
-        f"<tr><td>Stations</td><td>/api/v1.0/stations</td></tr>"
-        f"<tr><td>Tobs</td><td>/api/v1.0/tobs</td></tr>"
-        f"<tr><td>Temperatures for a given date (format: yyyy/mm/dd)</td><td>/api/v1.0/yyyy-mm-dd</td></tr>"
-        f"<tr><td>Temperatures for a given date range (format: yyyy/mm/dd)</td><td>/api/v1.0/yyyy-mm-dd/yyyy-mm-dd</td></tr>"
+        f"<table border='1' cellspacing='0' cellpadding='0'>"
+        f"<thead><tr><th>Route Name</th><th>Route</th></thead><tbody>"
+        f"<tr><td style='text-align:center'>Precipitation</td><td style='text-align:center'>/api/v1.0/precipitation</td></tr>"
+        f"<tr><td style='text-align:center'>Stations</td><td style='text-align:center'>/api/v1.0/stations</td></tr>"
+        f"<tr><td style='text-align:center'>Tobs</td><td style='text-align:center'>/api/v1.0/tobs</td></tr>"
+        f"<tr><td style='text-align:center'>Temperatures for a given date (format: yyyy/mm/dd)</td><td style='text-align:center'>/api/v1.0/yyyy-mm-dd</td></tr>"
+        f"<tr><td style='text-align:center'>Temperatures for a given date range (format: yyyy/mm/dd)</td><td style='text-align:center'>/api/v1.0/yyyy-mm-dd/yyyy-mm-dd</td></tr>"
+        f"</tbody></table>"
     )
 
 
@@ -92,7 +94,7 @@ def tobs():
     session = Session(engine)
 
     # Query the dates and temperature observations of the most active station for the last year of data.
-    most_recent_date_str = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
+    most_recent_date_str = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
     most_recent_date = dt.datetime.strptime(most_recent_date_str[0], '%Y-%m-%d')
     
     # Calculate the date one year from the last date in data set.
@@ -125,6 +127,7 @@ def temperatureGreaterThanStart(start):
         filter(Measurement.date >= start).all()
     session.close()
 
+    # Convert the list to Dictionary
     all_tobs = []
     for min,avg,max in results:
         tobs_dict = {}
@@ -141,11 +144,14 @@ def temperatureGreaterThanStart(start):
 @app.route('/api/v1.0/<start>/<stop>')
 def temperatureDateRange(start,stop):
     session = Session(engine)
+
+    #Query to get TMIN, TAVG, TMAX for a given date range (start and stop)
     results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
         filter(Measurement.date >= start).\
         filter(Measurement.date <= stop).all()
     session.close()
 
+    # Convert the list to Dictionary
     all_tobs = []
     for min,avg,max in results:
         tobs_dict = {}
