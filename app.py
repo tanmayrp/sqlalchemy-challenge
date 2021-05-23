@@ -123,7 +123,8 @@ def temperatureGreaterThanStart(start):
     session = Session(engine)
 
     #Query to get the TMIN, TAVG, TMAX for all dates greater than and equal to the given start date
-    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+    sel = [func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)]
+    results = session.query(*sel).\
         filter(Measurement.date >= start).all()
     session.close()
 
@@ -146,7 +147,8 @@ def temperatureDateRange(start,stop):
     session = Session(engine)
 
     #Query to get TMIN, TAVG, TMAX for a given date range (start and stop)
-    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+    sel = [func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)]
+    results = session.query(*sel).\
         filter(Measurement.date >= start).\
         filter(Measurement.date <= stop).all()
     session.close()
