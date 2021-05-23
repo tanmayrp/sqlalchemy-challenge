@@ -135,6 +135,27 @@ def temperatureGreaterThanStart(start):
 
     return jsonify(all_tobs)
 
+#################################################
+# TEMPERATURE DATA WITHIN A GIVEN DATE RANGE
+#################################################
+@app.route('/api/v1.0/<start>/<stop>')
+def temperatureDateRange(start,stop):
+    session = Session(engine)
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).\
+        filter(Measurement.date <= stop).all()
+    session.close()
+
+    all_tobs = []
+    for min,avg,max in results:
+        tobs_dict = {}
+        tobs_dict["Min"] = min
+        tobs_dict["Average"] = avg
+        tobs_dict["Max"] = max
+        all_tobs.append(tobs_dict)
+
+    return jsonify(all_tobs)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
